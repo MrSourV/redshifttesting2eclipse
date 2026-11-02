@@ -1,4 +1,6 @@
-// hero eclipse: a dithered limb band with white motes drifting off it
+// hero eclipse
+// a huge circle centred off the top-left. the lit side is OUTSIDE it (bottom-right):
+// red dither there only, white motes on the dark side only, bright line on the boundary.
 
 (function(){
   const cv = document.getElementById('eclipse');
@@ -6,12 +8,11 @@
   const ctx = cv.getContext('2d');
   const slow = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // band colour by depth inside the arc
+  // band colour by distance out from the edge
   const STOPS = [
-    [0.00, 255,  92,  84],
-    [0.10, 236,  40,  54],
-    [0.45, 196,  28,  66],
-    [1.00, 120,  16,  56]
+    [0.00, 244,  66,  74],
+    [0.35, 196,  34,  62],
+    [1.00, 120,  24,  48]
   ];
   function ramp(t){
     let a = STOPS[0], b = STOPS[STOPS.length-1];
@@ -29,49 +30,49 @@
   }
 
   let w=0, h=0, dpr=1;
-  let cx=0, cy=0, R=0, band=0;
-  let bandCv=null;                 // the static dithered limb
-  let angles=[];                   // arc angles that land on screen
-  let motes=[];
+  let cx=0, cy=0, R=0, fade=0, reach=0;
+  let bandCv=null, angles=[], motes=[], buckets=[];
 
-  // circle through the two viewport edge crossings, flattened by ECL_FLAT
   function geometry(){
     const aspect = w / h;
     let tall = (1.6 - aspect) / 1.0;
     tall = tall < 0 ? 0 : tall > 1 ? 1 : tall;
 
-    const fy = ECL_EDGE_Y + 0.20 * tall;   // arc meets the right edge here
-    const fx = ECL_EDGE_X + 0.18 * tall;   // and the bottom edge here
-
-    const p1x = w,        p1y = h * fy;
-    const p2x = w * fx,   p2y = h;
+    // on wide screens the sweep runs bottom edge -> right edge.
+    // as the window gets taller the lower end slides onto the left edge,
+    // which keeps the curve crossing the right edge exactly once.
+    const p1x = w * ECL_EDGE_X * (1 - tall);
+    const p1y = h * (1 - 0.01 * tall);
+    const p2x = w;
+    const p2y = h * (ECL_EDGE_Y + 0.26 * tall);
     const mx = (p1x + p2x) / 2, my = (p1y + p2y) / 2;
-    let vx = p2x - p1x, vy = p2y - p1y;
+    const vx = p2x - p1x, vy = p2y - p1y;
     const chord = Math.hypot(vx, vy) || 1;
-    // perpendicular pointing down-right, toward the centre
-    let nx = -vy / chord, ny = vx / chord;
-    if (nx < 0) { nx = -nx; ny = -ny; }
+    // normal pointing up-left, so the centre sits off that corner
+    let nx = vy / chord, ny = -vx / chord;
+    if (nx > 0) { nx = -nx; ny = -ny; }
 
-    const k = ECL_FLAT * chord;            // bigger = flatter arc
+    const k = ECL_FLAT * chord;
     cx = mx + nx * k;
     cy = my + ny * k;
     R  = Math.hypot(k, chord / 2);
-    band = Math.min(w, h) * ECL_BAND;
+
+    fade  = w * ECL_FADE;    // how fast the red dies off going out
+    reach = w * ECL_REACH;   // how far the motes thin out going in
 
     angles.length = 0;
-    const step = Math.PI / 900;
+    const step = Math.PI / 1400;
     for (let a = 0; a < Math.PI * 2; a += step){
       const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
-      if (x > -60 && x < w + 60 && y > -60 && y < h + 60) angles.push(a);
+      if (x > -40 && x < w + 40 && y > -40 && y < h + 40) angles.push(a);
     }
   }
 
-  // density across the limb: climbs to a peak just inside the edge, then falls away
+  // d > 0 is the lit side. nothing red ever crosses to the dark side.
   function density(d){
-    if (Math.abs(d) < ECL_RIM) return 0.97;          // bright line on the edge itself
-    if (d > 0) return 0.72 * Math.exp(-d / (band * 0.10));
-    const v = -d / band;
-    return 0.78 * Math.exp(-Math.pow(v / 0.55, 1.7));
+    if (d < -ECL_RIM) return 0;
+    if (d < ECL_RIM) return 0.92;        // the bright line itself
+    return 0.80 * Math.exp(-d / fade);
   }
 
   function buildBand(){
@@ -89,14 +90,10 @@
         const x = gx * ECL_CELL;
         const d = Math.hypot(x - cx, y - cy) - R;
         const pr = density(d);
-        if (pr < 0.004) continue;
-        if (rnd(gx, gy) >= pr) continue;
-        const onRim = Math.abs(d) < ECL_RIM;
-        const v = d < 0 ? Math.min(1, (-d) / band) : 0;
-        const c = onRim ? [255, 158, 146] : ramp(v);
+        if (pr < 0.004 || rnd(gx, gy) >= pr) continue;
+        const c = (d < ECL_RIM) ? ECL_RIM_RGB : ramp(Math.min(1, d / (fade * 3)));
         const p = i * 4;
-        px[p] = c[0]; px[p+1] = c[1]; px[p+2] = c[2];
-        px[p+3] = 255;
+        px[p] = c[0]; px[p+1] = c[1]; px[p+2] = c[2]; px[p+3] = 255;
       }
     }
     bx.putImageData(img, 0, 0);
@@ -107,18 +104,19 @@
       ? angles[(Math.random() * angles.length) | 0]
       : Math.random() * Math.PI * 2;
     const nx = Math.cos(a), ny = Math.sin(a);
-    const off = (Math.random() - 0.45) * band * 0.18;
-    m.x = cx + nx * (R + off);
-    m.y = cy + ny * (R + off);
-    const tanJ = (Math.random() - 0.5) * 0.7;
+    // start on the boundary, head inward (that is the dark side)
+    m.x = cx + nx * (R - Math.random() * 3);
+    m.y = cy + ny * (R - Math.random() * 3);
+    const tan = (Math.random() - 0.5) * 0.5;
     const sp = ECL_DOT_SPEED[0] + Math.random() * (ECL_DOT_SPEED[1] - ECL_DOT_SPEED[0]);
-    m.vx = (nx - ny * tanJ) * sp;
-    m.vy = (ny + nx * tanJ) * sp;
-    m.life = ECL_DOT_LIFE[0] + Math.random() * (ECL_DOT_LIFE[1] - ECL_DOT_LIFE[0]);
+    m.vx = (-nx - ny * tan) * sp;
+    m.vy = (-ny + nx * tan) * sp;
+    // exponential lifetimes give the density falloff seen on the reference
+    const u = Math.random();
+    m.life = Math.min(14, 0.35 + -Math.log(1 - u) * (reach / sp));
     m.age = seeded ? Math.random() * m.life : 0;
-    m.r = 0.8 + Math.pow(Math.random(), 2) * 1.8;
-    m.peak = 0.42 + Math.random() * 0.58;
-    // let the seeded ones start where they would have drifted to
+    m.r = ECL_DOT_R[0] + Math.pow(Math.random(), 2.2) * (ECL_DOT_R[1] - ECL_DOT_R[0]);
+    m.peak = 0.22 + Math.random() * 0.78;
     if (seeded){ m.x += m.vx * m.age; m.y += m.vy * m.age; }
   }
 
@@ -126,6 +124,8 @@
     const want = Math.min(ECL_DOT_MAX, Math.round(w * h / ECL_DOT_AREA));
     motes = new Array(want);
     for (let i=0;i<want;i++){ motes[i] = {}; spawn(motes[i], true); }
+    buckets = [];
+    for (let i=0;i<ECL_DOT_LEVELS;i++) buckets.push([]);
   }
 
   function build(){
@@ -135,52 +135,61 @@
     cv.width = Math.round(w * dpr);
     cv.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    geometry();
-    buildBand();
-    buildMotes();
+    geometry(); buildBand(); buildMotes();
   }
 
   function render(dt){
     ctx.clearRect(0, 0, w, h);
-
-    // the limb, scaled up with no smoothing so the blocks stay crisp
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(bandCv, 0, 0, w, h);
     ctx.imageSmoothingEnabled = true;
 
-    // white motes coming off the edge
-    ctx.fillStyle = '#fff';
+    for (let b=0;b<buckets.length;b++) buckets[b].length = 0;
+
     for (let i=0;i<motes.length;i++){
       const m = motes[i];
       if (dt){
         m.age += dt;
-        if (m.age >= m.life || m.x < -80 || m.y < -80 || m.x > w + 80 || m.y > h + 80){
+        if (m.age >= m.life || m.x < -40 || m.y < -40 || m.x > w + 40 || m.y > h + 40){
           spawn(m, false);
+        } else {
+          m.x += m.vx * dt;
+          m.y += m.vy * dt;
         }
-        m.x += m.vx * dt;
-        m.y += m.vy * dt;
       }
       const t = m.age / m.life;
-      let a = t < 0.14 ? t / 0.14 : (t > 0.55 ? (1 - t) / 0.45 : 1);
+      let a = t < 0.12 ? t / 0.12 : Math.pow(1 - (t - 0.12) / 0.88, 0.7);
       a *= m.peak;
-      if (a <= 0.01) continue;
-      ctx.globalAlpha = a;
+      if (a <= 0.02) continue;
+      let b = (a * ECL_DOT_LEVELS) | 0;
+      if (b >= ECL_DOT_LEVELS) b = ECL_DOT_LEVELS - 1;
+      buckets[b].push(m);
+    }
+
+    // one path per brightness level keeps thousands of motes cheap
+    ctx.fillStyle = '#fff';
+    for (let b=0;b<buckets.length;b++){
+      const list = buckets[b];
+      if (!list.length) continue;
+      ctx.globalAlpha = (b + 0.5) / ECL_DOT_LEVELS;
       ctx.beginPath();
-      ctx.arc(m.x, m.y, m.r, 0, 6.2832);
+      for (let i=0;i<list.length;i++){
+        const m = list[i];
+        ctx.moveTo(m.x + m.r, m.y);
+        ctx.arc(m.x, m.y, m.r, 0, 6.2832);
+      }
       ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
 
   let raf = 0, prev = 0, onScreen = true;
-
   function loop(ts){
     raf = requestAnimationFrame(loop);
     const dt = prev ? Math.min((ts - prev) / 1000, 0.05) : 0;
     prev = ts;
     render(dt);
   }
-
   function start(){ if (!raf && !slow){ prev = 0; raf = requestAnimationFrame(loop); } }
   function stop(){ if (raf){ cancelAnimationFrame(raf); raf = 0; } }
 
