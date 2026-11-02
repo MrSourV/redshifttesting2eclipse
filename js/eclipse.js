@@ -1,16 +1,17 @@
-// hero eclipse, a dithered disk that dissolves into specks
+// hero eclipse: a dithered limb band with white motes drifting off it
 
 (function(){
   const cv = document.getElementById('eclipse');
   if (!cv || !cv.getContext) return;
-  const ctx = cv.getContext('2d', {alpha:true});
+  const ctx = cv.getContext('2d');
   const slow = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // colour ramp across the disk: hot near the bottom-left tip, deep crimson up top
+  // band colour by depth inside the arc
   const STOPS = [
-    [0.00, 255, 86, 64],
-    [0.45, 232, 37, 51],
-    [1.00, 168, 24, 76]
+    [0.00, 255,  92,  84],
+    [0.10, 236,  40,  54],
+    [0.45, 196,  28,  66],
+    [1.00, 120,  16,  56]
   ];
   function ramp(t){
     let a = STOPS[0], b = STOPS[STOPS.length-1];
@@ -27,155 +28,181 @@
     return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
   }
 
-  let cw=0, ch=0, img=null, px=null;
-  let dist=null, r1=null, r2=null, r3=null, cr=null, cg=null, cb=null, dw=null;
-  let R=0, core=0, scatter=0;
+  let w=0, h=0, dpr=1;
+  let cx=0, cy=0, R=0, band=0;
+  let bandCv=null;                 // the static dithered limb
+  let angles=[];                   // arc angles that land on screen
+  let motes=[];
 
-  function build(){
-    const w = cv.clientWidth || innerWidth;
-    const h = cv.clientHeight || innerHeight;
-    cw = Math.max(1, Math.ceil(w / ECL_CELL));
-    ch = Math.max(1, Math.ceil(h / ECL_CELL));
-    cv.width = cw; cv.height = ch;
-
-    img = ctx.createImageData(cw, ch);
-    px  = img.data;
-
-    const n = cw * ch;
-    dist = new Float32Array(n);
-    r1 = new Float32Array(n); r2 = new Float32Array(n); r3 = new Float32Array(n);
-    cr = new Uint8Array(n); cg = new Uint8Array(n); cb = new Uint8Array(n);
-    dw = new Float32Array(n);
-
-    // the taller the window, the further down-right the disk sits,
-    // so it never creeps up behind the copy
+  // circle through the two viewport edge crossings, flattened by ECL_FLAT
+  function geometry(){
     const aspect = w / h;
     let tall = (1.6 - aspect) / 1.0;
     tall = tall < 0 ? 0 : tall > 1 ? 1 : tall;
-    const cx = w * (ECL_CX + 0.10 * tall);
-    const cy = h * (ECL_CY + 0.26 * tall);
-    R = Math.hypot(w, h) * (ECL_R + 0.16 * tall);
-    core = ECL_CORE;
-    scatter = Math.min(w, h) * ECL_SCATTER;
 
-    let i = 0;
-    for (let gy=0; gy<ch; gy++){
+    const fy = ECL_EDGE_Y + 0.20 * tall;   // arc meets the right edge here
+    const fx = ECL_EDGE_X + 0.18 * tall;   // and the bottom edge here
+
+    const p1x = w,        p1y = h * fy;
+    const p2x = w * fx,   p2y = h;
+    const mx = (p1x + p2x) / 2, my = (p1y + p2y) / 2;
+    let vx = p2x - p1x, vy = p2y - p1y;
+    const chord = Math.hypot(vx, vy) || 1;
+    // perpendicular pointing down-right, toward the centre
+    let nx = -vy / chord, ny = vx / chord;
+    if (nx < 0) { nx = -nx; ny = -ny; }
+
+    const k = ECL_FLAT * chord;            // bigger = flatter arc
+    cx = mx + nx * k;
+    cy = my + ny * k;
+    R  = Math.hypot(k, chord / 2);
+    band = Math.min(w, h) * ECL_BAND;
+
+    angles.length = 0;
+    const step = Math.PI / 900;
+    for (let a = 0; a < Math.PI * 2; a += step){
+      const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+      if (x > -60 && x < w + 60 && y > -60 && y < h + 60) angles.push(a);
+    }
+  }
+
+  // density across the limb: climbs to a peak just inside the edge, then falls away
+  function density(d){
+    if (Math.abs(d) < ECL_RIM) return 0.97;          // bright line on the edge itself
+    if (d > 0) return 0.72 * Math.exp(-d / (band * 0.10));
+    const v = -d / band;
+    return 0.78 * Math.exp(-Math.pow(v / 0.55, 1.7));
+  }
+
+  function buildBand(){
+    const bw = Math.max(1, Math.ceil(w / ECL_CELL));
+    const bh = Math.max(1, Math.ceil(h / ECL_CELL));
+    bandCv = document.createElement('canvas');
+    bandCv.width = bw; bandCv.height = bh;
+    const bx = bandCv.getContext('2d');
+    const img = bx.createImageData(bw, bh);
+    const px = img.data;
+
+    for (let gy=0, i=0; gy<bh; gy++){
       const y = gy * ECL_CELL;
-      for (let gx=0; gx<cw; gx++, i++){
+      for (let gx=0; gx<bw; gx++, i++){
         const x = gx * ECL_CELL;
-        dist[i] = Math.hypot(x - cx, y - cy);
-        r1[i] = rnd(gx, gy);
-        r2[i] = rnd(gx + 7919, gy + 104729);
-        r3[i] = rnd(gx + 15485863, gy + 32452843);
-        const wx = x / w;
-        dw[i] = 0.12 + 0.88 * wx * wx;
-        let t = (x / w) * 0.55 + (1 - y / h) * 0.45;
-        t = t < 0 ? 0 : t > 1 ? 1 : t;
-        const c = ramp(t);
-        cr[i] = c[0]; cg[i] = c[1]; cb[i] = c[2];
+        const d = Math.hypot(x - cx, y - cy) - R;
+        const pr = density(d);
+        if (pr < 0.004) continue;
+        if (rnd(gx, gy) >= pr) continue;
+        const onRim = Math.abs(d) < ECL_RIM;
+        const v = d < 0 ? Math.min(1, (-d) / band) : 0;
+        const c = onRim ? [255, 158, 146] : ramp(v);
+        const p = i * 4;
+        px[p] = c[0]; px[p+1] = c[1]; px[p+2] = c[2];
+        px[p+3] = 255;
       }
     }
+    bx.putImageData(img, 0, 0);
   }
 
-  // paints a cell, and sometimes its neighbours, so block sizes vary like the ref
-  function put(i, r, g, b, a, clump){
-    let p = i * 4;
-    px[p] = r; px[p+1] = g; px[p+2] = b; px[p+3] = a;
-    if (!clump) return;
-    const gx = i % cw;
-    if (gx + 1 < cw){ p = (i+1)*4; px[p]=r; px[p+1]=g; px[p+2]=b; px[p+3]=a; }
-    if (i + cw < cw*ch){
-      p = (i+cw)*4; px[p]=r; px[p+1]=g; px[p+2]=b; px[p+3]=a;
-      if (gx + 1 < cw){ p = (i+cw+1)*4; px[p]=r; px[p+1]=g; px[p+2]=b; px[p+3]=a; }
-    }
+  function spawn(m, seeded){
+    const a = angles.length
+      ? angles[(Math.random() * angles.length) | 0]
+      : Math.random() * Math.PI * 2;
+    const nx = Math.cos(a), ny = Math.sin(a);
+    const off = (Math.random() - 0.45) * band * 0.18;
+    m.x = cx + nx * (R + off);
+    m.y = cy + ny * (R + off);
+    const tanJ = (Math.random() - 0.5) * 0.7;
+    const sp = ECL_DOT_SPEED[0] + Math.random() * (ECL_DOT_SPEED[1] - ECL_DOT_SPEED[0]);
+    m.vx = (nx - ny * tanJ) * sp;
+    m.vy = (ny + nx * tanJ) * sp;
+    m.life = ECL_DOT_LIFE[0] + Math.random() * (ECL_DOT_LIFE[1] - ECL_DOT_LIFE[0]);
+    m.age = seeded ? Math.random() * m.life : 0;
+    m.r = 0.8 + Math.pow(Math.random(), 2) * 1.8;
+    m.peak = 0.42 + Math.random() * 0.58;
+    // let the seeded ones start where they would have drifted to
+    if (seeded){ m.x += m.vx * m.age; m.y += m.vy * m.age; }
   }
 
-  function draw(phase){
-    px.fill(0);
-    const n = cw * ch;
-    const band = core + scatter;
-    const starFall = scatter * 1.1;
-    for (let i=0; i<n; i++){
-      const d = dist[i] - R;
-      if (d < -core){
-        // solid disk: rim is the brightest point, the body sinks to crimson
-        const deep = Math.min(1, (-d - core) / (R * 0.42));
-        const k = 1 - deep * 0.52;
-        const m = deep * 0.55;
-        put(i,
-            cr[i]*k*(1-m) + 150*m*k,
-            cg[i]*k*(1-m) + 22*m*k,
-            cb[i]*k*(1-m) + 68*m*k,
-            255, false);
-      } else if (d < 0){
-        // thin hot rim right on the edge
-        const k = 1 + 0.22 * (1 + d / core);
-        put(i, Math.min(255, cr[i]*k), Math.min(255, cg[i]*k), Math.min(255, cb[i]*k), 255, false);
-      } else if (d < scatter){
-        // dissolve band
-        const u = (d + core) / band;
-        let pr = Math.pow(1 - u, 2.2);
-        pr += 0.06 * Math.sin(d * 0.045 - phase + r3[i] * 2.2);
-        if (r1[i] < pr){
-          const a = 255 - 60 * u;
-          put(i, cr[i], cg[i], cb[i], a, r3[i] > 0.88 && pr > 0.25);
+  function buildMotes(){
+    const want = Math.min(ECL_DOT_MAX, Math.round(w * h / ECL_DOT_AREA));
+    motes = new Array(want);
+    for (let i=0;i<want;i++){ motes[i] = {}; spawn(motes[i], true); }
+  }
+
+  function build(){
+    w = cv.clientWidth || innerWidth;
+    h = cv.clientHeight || innerHeight;
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    geometry();
+    buildBand();
+    buildMotes();
+  }
+
+  function render(dt){
+    ctx.clearRect(0, 0, w, h);
+
+    // the limb, scaled up with no smoothing so the blocks stay crisp
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bandCv, 0, 0, w, h);
+    ctx.imageSmoothingEnabled = true;
+
+    // white motes coming off the edge
+    ctx.fillStyle = '#fff';
+    for (let i=0;i<motes.length;i++){
+      const m = motes[i];
+      if (dt){
+        m.age += dt;
+        if (m.age >= m.life || m.x < -80 || m.y < -80 || m.x > w + 80 || m.y > h + 80){
+          spawn(m, false);
         }
-      } else {
-        // specks thrown clear of the edge
-        const out = d - scatter;
-        const fade = Math.exp(-out / starFall);
-        const pr = ECL_STARS * fade + ECL_DUST * dw[i];
-        if (r2[i] < pr){
-          const tw = 0.45 + 0.55 * Math.sin(phase * 1.7 + r3[i] * 6.283);
-          const warm = fade > 0.25;
-          put(i,
-              warm ? 255 : 226,
-              warm ? 150 : 222,
-              warm ? 150 : 226,
-              60 + 165 * tw * (0.35 + fade),
-              false);
-        }
+        m.x += m.vx * dt;
+        m.y += m.vy * dt;
       }
+      const t = m.age / m.life;
+      let a = t < 0.14 ? t / 0.14 : (t > 0.55 ? (1 - t) / 0.45 : 1);
+      a *= m.peak;
+      if (a <= 0.01) continue;
+      ctx.globalAlpha = a;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.r, 0, 6.2832);
+      ctx.fill();
     }
-    ctx.putImageData(img, 0, 0);
+    ctx.globalAlpha = 1;
   }
 
-  let raf = 0, last = 0, phase = 0, visible = true;
-  const frame = 1000 / ECL_FPS;
+  let raf = 0, prev = 0, onScreen = true;
 
-  function loop(t){
+  function loop(ts){
     raf = requestAnimationFrame(loop);
-    if (t - last < frame) return;
-    last = t;
-    phase += 0.045;
-    draw(phase);
+    const dt = prev ? Math.min((ts - prev) / 1000, 0.05) : 0;
+    prev = ts;
+    render(dt);
   }
 
-  function start(){ if (!raf && !slow) { last = 0; raf = requestAnimationFrame(loop); } }
-  function stop(){ if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+  function start(){ if (!raf && !slow){ prev = 0; raf = requestAnimationFrame(loop); } }
+  function stop(){ if (raf){ cancelAnimationFrame(raf); raf = 0; } }
 
-  let resizeTimer = 0;
-  function onResize(){
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { build(); draw(phase); }, 150);
-  }
+  let rt = 0;
+  addEventListener('resize', () => {
+    clearTimeout(rt);
+    rt = setTimeout(() => { build(); render(0); }, 150);
+  });
 
   build();
-  draw(phase);
-  if (slow) return;           // static frame, no loop
+  render(0);
+  if (slow) return;
   start();
 
-  addEventListener('resize', onResize);
-
-  // don't burn frames once the hero is scrolled past
   const hero = document.getElementById('top');
   if (hero && 'IntersectionObserver' in window){
     new IntersectionObserver(es => {
-      visible = es[0].isIntersecting;
-      visible ? start() : stop();
+      onScreen = es[0].isIntersecting;
+      onScreen ? start() : stop();
     }, {threshold:0}).observe(hero);
   }
   document.addEventListener('visibilitychange', () => {
-    document.hidden ? stop() : (visible && start());
+    document.hidden ? stop() : (onScreen && start());
   });
 })();
