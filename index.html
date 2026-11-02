@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RedShift Productions</title>
+<meta name="description" content="RedShift Productions — the studio behind Breakout, the prison life experience on Roblox with a community of 1.4M+ members.">
+<meta property="og:title" content="RedShift Productions">
+<meta property="og:description" content="The studio behind Breakout on Roblox. Prisoner. Guard. Criminal. Pick your side.">
+<meta name="theme-color" content="#0b0b0e">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="loading">
+
+<div id="preload">
+  <img src="assets/loader.png" alt="Loading">
+</div>
+
+<nav id="nav" aria-label="Main">
+  <a class="nav-brand" href="#top">
+    <img src="assets/logo-color.png" alt="RedShift Productions logo">
+    <span>RED<b>SHIFT</b></span>
+  </a>
+  <div class="nav-right">
+    <a class="btn solid small" href="https://www.roblox.com/games/85247362414047/Breakout" target="_blank" rel="noopener"><svg class="btn-play" viewBox="0 0 12 14" aria-hidden="true"><polygon points="0,0 12,7 0,14" fill="currentColor"/></svg><span>Play Now</span></a>
+  </div>
+</nav>
+
+<main>
+
+<!-- hero -->
+<header class="hero" id="top">
+  <div class="hero-bg">
+    <div class="hero-slide" style="background-image:url('assets/hero1.jpg')"></div>
+    <div class="hero-slide" style="background-image:url('assets/hero2.jpg')"></div>
+    <div class="hero-slide" style="background-image:url('assets/hero3.jpg')"></div>
+  </div>
+  <div class="hero-halo"></div>
+  <canvas id="eclipse" aria-hidden="true"></canvas>
+  <div class="hero-glow"></div>
+
+  <div class="hero-inner">
+    <div class="hero-col">
+      <div class="hero-eyebrow"><b>RedShift Productions</b>presents</div>
+      <h1><img class="hero-title" src="assets/breakout.png" alt=""><span class="sr-only">Breakout</span></h1>
+      <p class="hero-sub">Breakout evolved from the recently rebranded <b>Prisoner Life</b>, a classic Guards vs. Prisoners experience set within a prison environment and built around a modernized interpretation of old-school Roblox gameplay and aesthetics. As RedShift's first fully in-house title, Breakout marked the collective's debut as both a developer and publisher on the Roblox platform. Its success became a defining milestone for the collective, earning RedShift a place within Roblox's exclusive top developer program.</p>
+
+      <div class="hero-cta">
+        <a class="btn solid" href="https://www.roblox.com/games/85247362414047/Breakout" target="_blank" rel="noopener">Play on Roblox</a>
+        <a class="btn" href="https://www.roblox.com/communities/35408513/Breakout-Community" target="_blank" rel="noopener">Join the Community</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- stats -->
+<section class="stats" aria-labelledby="stats-title">
+  <h2 id="stats-title" class="sr-only">By the numbers</h2>
+  <div class="stats-inner">
+    <!-- fallback numbers -->
+    <div class="stat reveal"><div class="stat-num"><span class="count" id="statMembers" data-count="1400000">0</span><em>+</em></div><div class="stat-label">Members</div></div>
+    <div class="stat reveal d1"><div class="stat-num"><span class="count" id="statVisits" data-count="1000000">0</span><em>+</em></div><div class="stat-label">Visits</div></div>
+    <div class="stat reveal d2"><div class="stat-num"><span class="count" id="statFavs" data-count="10000">0</span><em>+</em></div><div class="stat-label">Favorites</div></div>
+    <div class="stat reveal d3"><div class="stat-num"><span class="count" id="statRating" data-count="90">0</span><em>%</em></div><div class="stat-label">Rating</div></div>
+  </div>
+</section>
+
+<!-- game -->
+<section id="game" aria-labelledby="games-title">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <h2 id="games-title">Games</h2>
+      </div>
+    </div>
+
+    <div class="game-card">
+      <div class="game-art reveal">
+        <div class="fallback" id="gameArtFallback"><img src="assets/logo-color.png" alt=""></div>
+        <img id="gameIcon" alt="Breakout game icon" style="display:none">
+      </div>
+      <div class="game-info reveal d1">
+        <h3>Break<span>out</span></h3>
+        <p class="game-desc">Break out of prison, avoid security and escape, or keep everyone inside and control the prison. Pick a team, level up for more guns, and drive around the city looking for trouble. Earn cash and XP from objectives, arrests and escapes, then spend it on gear, upgrades and cars. Play with friends or on your own.</p>
+        <div class="game-meta">
+          <div><b id="metaPlaying">—</b><span>Players</span></div>
+          <div><b id="metaVisits">—</b><span>Visits</span></div>
+          <div><b id="metaFavs">—</b><span>Favorites</span></div>
+        </div>
+        <div class="game-cta">
+          <a class="btn solid" href="https://www.roblox.com/games/85247362414047/Breakout" target="_blank" rel="noopener">Play Breakout</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="roles">
+      <div class="role reveal">
+        <h4>Prisoner</h4>
+        <p>Work with other inmates, complete objectives, craft shivs and riot. Find a way out, or make one.</p>
+      </div>
+      <div class="role reveal d1">
+        <h4>Guard</h4>
+        <p>Protect the prison, stop the prisoners and arrest criminals. Use sirens, handcuffs, weapons and teamwork to keep everyone under control.</p>
+      </div>
+      <div class="role reveal d2">
+        <h4>Criminal</h4>
+        <p>Breach the armory, fight cops and help prisoners escape. Explore the city, rob locations and build a crew to take control.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- devs -->
+<section class="studio" id="studio" aria-labelledby="devs-title">
+  <div class="wrap">
+    <div class="devs-head reveal">
+      <h2 id="devs-title">Meet the <span>Developers</span></h2>
+    </div>
+    <div class="marquee reveal d1">
+      <!-- filled by js -->
+      <div class="marquee-track" id="devTrack"></div>
+    </div>
+  </div>
+</section>
+
+<!-- community -->
+<section class="community" id="community" aria-labelledby="community-title">
+  <div class="wrap">
+    <div class="reveal">
+      <h2 id="community-title">1.4M+ members <br><span>Join our Community</span></h2>
+      <p>Follow our development, catch when update drops first, and be there when the next event kicks off.</p>
+      <div class="game-cta">
+        <a class="btn solid" href="https://www.roblox.com/communities/35408513/Breakout-Community" target="_blank" rel="noopener">Roblox Community</a>
+        <!-- discord link -->
+        <a class="btn" href="https://discord.com/invite/prisonerlife">Discord</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- partner -->
+<section class="partner" id="partner" aria-labelledby="partner-title">
+  <div class="partner-inner reveal">
+    <h2 class="partner-label" id="partner-title">Partnered with</h2>
+    <a class="partner-logo" href="https://twinatlas.com/" target="_blank" rel="noopener">
+      <img src="assets/twinatlas.png" alt="Twin Atlas">
+    </a>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="foot">
+    <div class="foot-brand">
+      <img src="assets/logo-white.png" alt="">
+      <span>REDSHIFT PRODUCTIONS</span>
+    </div>
+    <small>© <span id="year"></span> RedShift Productions.</small>
+  </div>
+</footer>
+
+<script src="js/config.js"></script>
+<script src="js/eclipse.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
